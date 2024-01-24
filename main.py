@@ -1,13 +1,16 @@
-# 这是一个示例 Python 脚本。
-
-# 按 ⌃R 执行或将其替换为您的代码。
-# 按 双击 ⇧ 在所有地方搜索类、文件、工具窗口、操作和设置。
-
-
-import os
 import subprocess
-
 import click
+import os
+import hashlib
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from tools import storageFormat
+
+fileModels = {}
+file_ext_list = []
+fileExtModels = {}
+TOTOAL = 0
+FINISHED = 0
 
 
 def arrow_choice(choices):
@@ -64,16 +67,118 @@ def find_largest_files(directory):
         subprocess.Popen(['open', dir_path])
 
 
-@click.command()
+@click.group()
+def main():
+    pass
+
+
+@main.command(help="深度智能扫描(包含微信文件扫描+MacOS相册扫描)")
 @click.option('-d', '--directory', required=True, type=click.Path(exists=True), help='Directory to scan.',
               prompt='Enter the directory to scan.')
-def main(directory):
+def smart_deep_scan(directory):
     # 调用函数
     find_largest_files(directory)
 
 
-# 按装订区域中的绿色按钮以运行脚本。
-if __name__ == '__main__':
-    main()
+def handle(special_file, root, ):
+    # 如果指定前缀或者后缀
+    tmpl = special_file.split(".")
+    filename = tmpl[0]
+    ext = tmpl[-1]
+    # print(special_file, ext)
+    if fileExtModels.keys().__contains__(ext):
+        fileExtModels[ext] += 1
+    else:
+        fileExtModels.setdefault(ext, 0)
+    absPath = os.path.join(root, special_file)
+    with open(absPath, 'rb') as f:
+        data = f.read()
+    statinfo = os.stat(absPath)
+    fMD5 = hashlib.md5(data).hexdigest()
+    model = {
+        "name": filename,
+        "path": absPath,
+        "ext": ext,
+        "size": statinfo.st_size
+    }
+    if fileModels.keys().__contains__(fMD5):
+        # errMsg = f"找到一样的文件:MD5:{fMD5}"+ \
+        #          "\n            "+absPath+\
+        #          "\n            "+fileModels[fMD5]["path"]
+        # raise Exception(errMsg)
+        fileModels[fMD5].append(model)
+    else:
+        fileModels.setdefault(fMD5, [model])
 
-# 访问 https://www.jetbrains.com/help/pycharm/ 获取 PyCharm 帮助
+
+#         if postfix or prefix:
+#             # 同时指定前缀和后缀
+#             if postfix and prefix:
+#                 if special_file.endswith(postfix) and special_file.startswith(prefix):
+#                     file_list.append(os.path.join(root, special_file))
+#                     continue
+#
+#             # 只指定后缀
+#             elif postfix:
+#                 if special_file.endswith(postfix):
+#                     file_list.append(os.path.join(root, special_file))
+#                     continue
+#
+#             # 只指定前缀
+#             elif prefix:
+#                 if special_file.startswith(prefix):
+#                     file_list.append(os.path.join(root, special_file))
+#                     continue
+#
+#         # 前缀后缀均未指定
+#         else:
+#             file_list.append(os.path.join(root, special_file))
+#             continue
+
+@main.command(help="浅扫描(目录级普通扫描)")
+@click.option('-d', '--directory', required=True, type=click.Path(exists=True), help='Directory to scan.',
+              prompt='Enter the directory to scan.')
+def scan(directory):
+    print(f"开始扫描[{directory}]......")
+    global fileModels, fileExtModels, TOTOAL, FINISHED
+    pool = ThreadPoolExecutor(max_workers=10)
+    futs = []
+    for root, sub_dirs, files in os.walk(directory):
+        print(root)
+        for special_file in files:
+            TOTOAL += 1
+            print(TOTOAL, "|----------------------------------", special_file)
+            if special_file in [".DS_Store"]:
+                continue
+            th = pool.submit(handle, special_file, root)
+            futs.append(th)
+    # # print(file_list)	# 打印出扫描到的文件路径
+    # return file_list
+    as_completed(futs)
+
+    file_ext_list = sorted(fileExtModels.keys(), key=lambda item: len(item), reverse=True)
+    print(f"Sum of Ext is {len(file_ext_list)}:")
+    colNum = 10
+    for r in range(0, len(file_ext_list), colNum):
+        linetxt = "  ".join(
+            [f"({x},{fileExtModels[x]})" for x in file_ext_list[r: min(r + colNum, len(file_ext_list))]])
+        print(linetxt)
+    total = 0
+    md5s = sorted(fileModels.keys(), key=lambda item: fileModels[item][0]["size"] * len(fileModels[item]), reverse=True)
+    clearableSpace = 0
+    for md in md5s:
+        fs = fileModels[md]
+        count = len(fs)
+        if count > 1:
+            total += 1
+            _clearableSpace = fs[0]["size"] * (len(fs) - 1)
+            clearableSpace += _clearableSpace
+            print(total, md, count, storageFormat(fs[0]["size"]), storageFormat(_clearableSpace), ":")
+            for f in fs:
+                print("|-------------------", f["path"])
+    print(f"There is {storageFormat(clearableSpace)} of space in you devices that can be clean.")
+
+
+# 按装订区域中的绿色按钮以运行脚本。
+if __name__ == "__main__":
+    main()
