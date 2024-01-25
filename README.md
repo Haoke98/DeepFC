@@ -26,6 +26,8 @@ Options:
   --help  Show this message and exit.
 
 Commands:
+  compare          比较两个文件的内容是否一致(有利于,同内容不同名文件的比较和唯一性确认和重复率计算)
   scan             浅扫描(目录级普通扫描)
   smart-deep-scan  深度智能扫描(包含微信文件扫描+MacOS相册扫描)
 ```
+![](assets/compare_snapshot1.png)

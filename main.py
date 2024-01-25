@@ -1,3 +1,4 @@
+import filecmp
 import subprocess
 import click
 import os
@@ -177,6 +178,21 @@ def scan(directory):
             for f in fs:
                 print("|-------------------", f["path"])
     print(f"There is {storageFormat(clearableSpace)} of space in you devices that can be clean.")
+
+
+@main.command(help="比较两个文件的内容是否一致(有利于,同内容不同名文件的比较和唯一性确认和重复率计算)")
+@click.option("-f1", "--file1", help="要比较的第一个文件", required=True, type=click.Path(exists=True),
+              prompt="请输入要比较的文件1")
+@click.option("-f2", "--file2", help="要比较的第二个文件", required=True, type=click.Path(exists=True),
+              prompt="请输入要比较的文件2")
+def compare(file1, file2):
+    # 使用 filecmp 模块的cmp方法比较两个文件
+    result = filecmp.cmp(file1, file2)
+
+    if result:
+        print(f"内容一致")
+    else:
+        print(f"内容不一致")
 
 
 # 按装订区域中的绿色按钮以运行脚本。
