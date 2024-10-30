@@ -56,4 +56,9 @@ def main(start_path='.'):
 
 
 if __name__ == "__main__":
+    # TODO: 还有/Users/shadikesadamu/Library/Caches/Yarn目录也要一起清理
+    # TODO: 还有/Users/shadikesadamu/Library/Caches/JetBrains目录也要一起清理
+    # TODO: 还有/Users/shadikesadamu/Library/Caches/LarkShel目录也要一起清理
+    # TODO: 还有/Users/shadikesadamu/Library/Caches/pip目录也要一起清理
+    # TODO: 还有/Users/shadikesadamu/Library/Caches/Google目录也要一起清理
     main(sys.argv[1])
