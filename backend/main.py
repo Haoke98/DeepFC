@@ -209,6 +209,13 @@ def scan_wechat(min_size):
     scanner.clean_selected_files()
 
 
+@main.command(help="启动文件管理器界面")
+@click.option('--port', default=5000, help='服务端口号')
+def start_ui(port):
+    import uvicorn
+    uvicorn.run("api:app", host="127.0.0.1", port=port, reload=True)
+
+
 # 按装订区域中的绿色按钮以运行脚本。
 if __name__ == "__main__":
     main()
