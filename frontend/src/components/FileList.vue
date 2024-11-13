@@ -1,34 +1,79 @@
 <template>
   <div class="file-manager">
-    <!-- 磁盘使用情况 -->
-    <div class="disk-usage">
+    <div class="monitor-grid">
+      <!-- 磁盘使用情况 -->
       <el-card>
         <template #header>
-          <div class="disk-header">
+          <div class="monitor-header">
             <span>磁盘使用情况</span>
-            <el-button type="primary" link @click="updateDiskUsage">
-              刷新
-            </el-button>
           </div>
         </template>
-        <div class="disk-info">
-          <el-progress 
-            type="dashboard"
-            :percentage="diskUsage.percentage || 0"
-            :color="diskUsageColor"
-          >
-            <template #default="{ percentage }">
-              <div class="progress-content">
-                <div>{{ (percentage || 0).toFixed(1) }}%</div>
-                <div class="usage-details">
-                  <div>已用: {{ formatSize(diskUsage.used) }}</div>
-                  <div>可用: {{ formatSize(diskUsage.free) }}</div>
-                  <div>总计: {{ formatSize(diskUsage.total) }}</div>
-                </div>
+        <el-progress 
+          type="dashboard"
+          :percentage="systemStatus.disk.percent || 0"
+          :color="getColorByPercentage(systemStatus.disk.percent)"
+        >
+          <template #default="{ percentage }">
+            <div class="progress-content">
+              <div>{{ percentage.toFixed(1) }}%</div>
+              <div class="usage-details">
+                <div>已用: {{ formatSize(systemStatus.disk.used) }}</div>
+                <div>可用: {{ formatSize(systemStatus.disk.free) }}</div>
+                <div>总计: {{ formatSize(systemStatus.disk.total) }}</div>
               </div>
-            </template>
-          </el-progress>
-        </div>
+            </div>
+          </template>
+        </el-progress>
+      </el-card>
+
+      <!-- 内存使用情况 -->
+      <el-card>
+        <template #header>
+          <div class="monitor-header">
+            <span>内存使用情况</span>
+          </div>
+        </template>
+        <el-progress 
+          type="dashboard"
+          :percentage="systemStatus.memory.percent || 0"
+          :color="getColorByPercentage(systemStatus.memory.percent)"
+        >
+          <template #default="{ percentage }">
+            <div class="progress-content">
+              <div>{{ percentage.toFixed(1) }}%</div>
+              <div class="usage-details">
+                <div>已用: {{ formatSize(systemStatus.memory.used) }}</div>
+                <div>可用: {{ formatSize(systemStatus.memory.free) }}</div>
+                <div>总计: {{ formatSize(systemStatus.memory.total) }}</div>
+              </div>
+            </div>
+          </template>
+        </el-progress>
+      </el-card>
+
+      <!-- 交换内存使用情况 -->
+      <el-card>
+        <template #header>
+          <div class="monitor-header">
+            <span>交换内存使用情况</span>
+          </div>
+        </template>
+        <el-progress 
+          type="dashboard"
+          :percentage="systemStatus.swap.percent || 0"
+          :color="getColorByPercentage(systemStatus.swap.percent)"
+        >
+          <template #default="{ percentage }">
+            <div class="progress-content">
+              <div>{{ percentage.toFixed(1) }}%</div>
+              <div class="usage-details">
+                <div>已用: {{ formatSize(systemStatus.swap.used) }}</div>
+                <div>可用: {{ formatSize(systemStatus.swap.free) }}</div>
+                <div>总计: {{ formatSize(systemStatus.swap.total) }}</div>
+              </div>
+            </div>
+          </template>
+        </el-progress>
       </el-card>
     </div>
 
@@ -182,32 +227,25 @@ const api = axios.create({
   withCredentials: true
 })
 
-const diskUsage = ref({
-  total: 0,
-  used: 0,
-  free: 0,
-  percentage: 0
+const systemStatus = ref({
+  disk: { total: 0, used: 0, free: 0, percent: 0 },
+  memory: { total: 0, used: 0, free: 0, percent: 0 },
+  swap: { total: 0, used: 0, free: 0, percent: 0 }
 })
 
-const diskUsageColor = computed(() => {
-  const percentage = diskUsage.value.percentage
-  if (percentage < 60) return '#67C23A'
-  if (percentage < 80) return '#E6A23C'
+const getColorByPercentage = (percent) => {
+  if (percent < 60) return '#67C23A'
+  if (percent < 80) return '#E6A23C'
   return '#F56C6C'
-})
+}
 
-const updateDiskUsage = async () => {
+const updateSystemStatus = async () => {
   try {
-    const { data } = await api.get('/api/disk-usage')
-    diskUsage.value = {
-      total: data.total,
-      used: data.used,
-      free: data.free,
-      percentage: data.usage_percent
-    }
+    const { data } = await api.get('/api/monitor')
+    systemStatus.value = data
   } catch (error) {
-    console.error('Failed to get disk usage:', error)
-    ElMessage.error('获取磁盘使用情况失败')
+    console.error('Failed to get system status:', error)
+    ElMessage.error('获取系统状态失败')
   }
 }
 
@@ -216,7 +254,7 @@ const scanFiles = async () => {
     const path = scanPath.value === 'custom' ? customPath.value : scanPath.value
     await api.get(`/api/scan?min_size=${minSize.value}&path=${path}`)
     await loadFiles()
-    await updateDiskUsage()
+    await updateSystemStatus()
   } catch (error) {
     console.error('Scan error:', error)
     ElMessage.error('扫描失败')
@@ -229,7 +267,7 @@ const loadFiles = async () => {
     files.value = data
   } catch (error) {
     console.error('Load files error:', error)
-    ElMessage.error('加载文件列表失败')
+    ElMessage.error('加载文件列表失')
   }
 }
 
@@ -250,9 +288,12 @@ const handleAction = async (action, file) => {
   }
 }
 
+// 组件挂载时启动定时器
 onMounted(() => {
   loadFiles()
-  updateDiskUsage()
+  updateSystemStatus()
+  // 每5秒更新一次系统状态
+  setInterval(updateSystemStatus, 5000)
 })
 </script>
 
@@ -282,20 +323,17 @@ onMounted(() => {
   box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
 }
 
-.disk-usage {
+.monitor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
   margin-bottom: 20px;
 }
 
-.disk-header {
+.monitor-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.disk-info {
-  display: flex;
-  justify-content: center;
-  padding: 20px;
 }
 
 .progress-content {

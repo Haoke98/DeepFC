@@ -5,6 +5,7 @@ import os
 import subprocess
 from pydantic import BaseModel
 import shutil
+import psutil
 
 app = FastAPI()
 
@@ -100,4 +101,36 @@ async def get_disk_usage():
         "used": used,
         "free": free,
         "usage_percent": (used / total) * 100
+    }
+
+@app.get("/monitor")
+async def get_system_monitor():
+    # 磁盘使用情况
+    disk = psutil.disk_usage("/")
+    
+    # 内存使用情况
+    mem = psutil.virtual_memory()
+    
+    # 交换内存使用情况
+    swap = psutil.swap_memory()
+    
+    return {
+        "disk": {
+            "total": disk.total,
+            "used": disk.used,
+            "free": disk.free,
+            "percent": disk.percent
+        },
+        "memory": {
+            "total": mem.total,
+            "used": mem.used,
+            "free": mem.available,
+            "percent": mem.percent
+        },
+        "swap": {
+            "total": swap.total,
+            "used": swap.used,
+            "free": swap.free,
+            "percent": swap.percent
+        }
     } 
