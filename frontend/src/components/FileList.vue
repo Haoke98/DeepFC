@@ -94,12 +94,6 @@
         class="custom-path"
         :disabled="scanPath !== 'custom'"
       />
-
-      <el-select v-model="groupBy" placeholder="分组方式">
-        <el-option label="按大小排序" value="size" />
-        <el-option label="按账号分组" value="account" />
-        <el-option label="按类型分组" value="type" />
-      </el-select>
       
       <el-input-number 
         v-model="minSize" 
@@ -112,6 +106,13 @@
         扫描文件
       </el-button>
     </div>
+    <el-progress
+        v-if="scanning"
+        :percentage="scanProgress"
+        :status="scanProgress < 100 ? 'processing' : 'success'"
+    >
+      <span>已扫描 {{ scannedDirs }} 个目录</span>
+    </el-progress>
 
     <!-- 文件列表 -->
     <div class="file-list">
@@ -257,15 +258,49 @@ const updateSystemStatus = async () => {
   }
 }
 
+const scanning = ref(false)
+const scanProgress = ref(0)
+const scannedDirs = ref(0)
+
+// 定期检查扫描进度
+const checkProgress = async () => {
+  if (!scanning.value) return
+  
+  try {
+    const { data } = await api.get('/api/scan/progress')
+    scanning.value = data.scanning
+    scanProgress.value = data.progress
+    scannedDirs.value = data.scanned_dirs
+    
+    if (scanning.value) {
+      // 获取当前已扫描的文件
+      const { data: filesData } = await api.get('/api/scan/files')
+      files.value = filesData.files
+      
+      // 继续检查进度
+      setTimeout(checkProgress, 1000)
+    }
+  } catch (error) {
+    console.error('Failed to get scan progress:', error)
+  }
+}
+
+// 修改扫描方法
 const scanFiles = async () => {
   try {
+    scanning.value = true
+    scanProgress.value = 0
+    scannedDirs.value = 0
+    
     const path = scanPath.value === 'custom' ? customPath.value : scanPath.value
     await api.get(`/api/scan?min_size=${minSize.value}&path=${path}`)
-    await loadFiles()
-    await updateSystemStatus()
+    
+    // 开始检查进度
+    checkProgress()
   } catch (error) {
     console.error('Scan error:', error)
     ElMessage.error('扫描失败')
+    scanning.value = false
   }
 }
 

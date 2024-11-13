@@ -47,25 +47,24 @@ def get_base_path(path_type: str) -> str:
 
 @app.get("/scan")
 async def scan_files(min_size: int = 10, path: str = "wechat"):
-    # 清空之的扫描结果
-    scanner.clear_scan_results()
-
+    # 如果已经在扫描，返回错误
+    if scanner.scanning:
+        raise HTTPException(status_code=400, detail="Scan already in progress")
+    
     if path == "wechat":
         scanner.scan_message_files(min_size_mb=min_size)
     elif path == "photos":
         scanner.scan_photos_library(min_size_mb=min_size)
     elif path in ["user", "system", "photos", "yarn", "jetbrains", "lark", "google", "pip"]:
-        # FIXME: 这里的PIP可能需要特殊处理, 因为Anaconda的情况下可能存在多个缓存目录
-        scanner.scan_directory(BASE_PATHS[path], min_size_mb=min_size)
+        scanner.start_scan(BASE_PATHS[path], min_size_mb=min_size)
     elif os.path.exists(path):
-        scanner.scan_directory(path, min_size_mb=min_size)
+        scanner.start_scan(path, min_size_mb=min_size)
     else:
         raise HTTPException(status_code=400, detail="Invalid path")
 
     return {
-        "accounts": scanner.accounts,
-        "total_size": sum(account["total_size"] for account in scanner.accounts.values()),
-        "total_files": len(scanner.large_files)
+        "status": "scanning",
+        "message": "Scan started successfully"
     }
 
 
@@ -153,4 +152,17 @@ async def get_system_monitor():
             "free": swap.free,
             "percent": swap.percent
         }
+    }
+
+
+@app.get("/scan/progress")
+async def get_scan_progress():
+    return scanner.get_scan_progress()
+
+
+@app.get("/scan/files")
+async def get_current_objects():
+    return {
+        "files": scanner.get_scanned_objects(),
+        "total_size": sum(f["size"] for f in scanner.large_files)
     }

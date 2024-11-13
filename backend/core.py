@@ -8,10 +8,14 @@ import hashlib
 
 class FileScanner:
     def __init__(self):
-        self.base_path = os.path.expanduser("~/Library/Containers/com.tencent.xinWeChat/Data/Library/Application Support/com.tencent.xinWeChat")
+        self.base_path = os.path.expanduser(
+            "~/Library/Containers/com.tencent.xinWeChat/Data/Library/Application Support/com.tencent.xinWeChat")
         self.large_files = []
         self.size_threshold = 10 * 1024 * 1024  # 默认10MB
         self.accounts = {}
+        self.total_dirs = 0
+        self.scanned_dirs = 0
+        self.scanning = False
 
     def _is_account_dir(self, dirname):
         """检查是否为账号目录（32位十六进制字符串）"""
@@ -23,8 +27,8 @@ class FileScanner:
         self.size_threshold = min_size_mb * 1024 * 1024
 
         # 查找版本目录（如 2.0b4.0.9）
-        version_dirs = [d for d in os.listdir(self.base_path) 
-                       if os.path.isdir(os.path.join(self.base_path, d)) and d.startswith('2.')]
+        version_dirs = [d for d in os.listdir(self.base_path)
+                        if os.path.isdir(os.path.join(self.base_path, d)) and d.startswith('2.')]
         if not version_dirs:
             click.echo("未找到微信版本目录")
             return
@@ -39,8 +43,8 @@ class FileScanner:
         ]
 
         # 只遍历账号目录（32位十六进制字符串格式的目录）
-        account_dirs = [d for d in os.listdir(version_path) 
-                       if os.path.isdir(os.path.join(version_path, d)) and self._is_account_dir(d)]
+        account_dirs = [d for d in os.listdir(version_path)
+                        if os.path.isdir(os.path.join(version_path, d)) and self._is_account_dir(d)]
 
         if not account_dirs:
             click.echo("未找到微信账号目录")
@@ -164,11 +168,15 @@ class FileScanner:
 
     def scan_directory(self, directory_path, min_size_mb=10):
         """扫描指定目录中的大文件"""
+        self.scanning = True
+        self.total_dirs = sum([len(dirs) for _, dirs, _ in os.walk(directory_path)])
+        self.scanned_dirs = 0
+
         self.size_threshold = min_size_mb * 1024 * 1024
-        
+
         if not os.path.exists(directory_path):
             return
-        
+
         def get_dir_size(start_path):
             total_size = 0
             for dirpath, dirnames, filenames in os.walk(start_path):
@@ -179,15 +187,16 @@ class FileScanner:
                     except (OSError, IOError):
                         continue
             return total_size
-        
+
         # 遍历目录
         for root, dirs, files in os.walk(directory_path):
+            self.scanned_dirs += 1
             # 特殊处理的文件夹列表
             special_dirs = {
                 'node_modules': 'Node依赖包',
                 '.venv': 'Python依赖环境'
             }
-            
+
             # 处理特殊文件夹
             for dir_name, dir_type in special_dirs.items():
                 if dir_name in dirs:
@@ -206,15 +215,15 @@ class FileScanner:
                             self.large_files.append(file_info)
                     except (OSError, IOError) as e:
                         print(f"Error processing {dir_name} at {special_dir_path}: {e}")
-                    
+
                     # 从待遍历列表中移除该目录
                     dirs.remove(dir_name)
-            
+
             # 处理普通文件
             for file in files:
                 if file == ".DS_Store":
                     continue
-                
+
                 file_path = os.path.join(root, file)
                 try:
                     file_size = os.path.getsize(file_path)
@@ -222,7 +231,7 @@ class FileScanner:
                         file_type = self._get_file_type(file)
                         relative_path = os.path.relpath(file_path, directory_path)
                         file_md5 = self._calculate_file_md5(file_path)
-                        
+
                         file_info = {
                             'path': file_path,
                             'relative_path': relative_path,
@@ -230,23 +239,21 @@ class FileScanner:
                             'type': file_type,
                             'md5': file_md5
                         }
-                        
+
                         # 检查是否已存在相同内容的文件
                         duplicate = False
                         for existing_file in self.large_files:
                             if existing_file.get('md5') == file_md5:
                                 duplicate = True
                                 break
-                        
+
                         if not duplicate:
                             self.large_files.append(file_info)
-                            
+
                 except (OSError, IOError) as e:
                     print(f"Error processing file {file_path}: {e}")
                     continue
-        
-        # 按文件大小排序
-        self.large_files.sort(key=lambda x: x['size'], reverse=True)
+        self.scanning = False
 
     def _calculate_file_md5(self, file_path, block_size=8192):
         """计算文件的MD5值"""
@@ -261,3 +268,39 @@ class FileScanner:
             return md5.hexdigest()
         except (OSError, IOError):
             return None
+
+    def get_scan_progress(self):
+        return {
+            "total_dirs": self.total_dirs,
+            "scanned_dirs": self.scanned_dirs,
+            "scanning": self.scanning,
+            "progress": (self.scanned_dirs / self.total_dirs * 100) if self.total_dirs > 0 else 0
+        }
+
+    def start_scan(self, directory_path, min_size_mb=10):
+        """开始异步扫描"""
+        self.clear_scan_results()
+        self.scanning = True
+
+        def run_scan():
+            try:
+                self.scan_directory(directory_path, min_size_mb)
+            except Exception as e:
+                print(f"Scan error: {e}")
+            finally:
+                self.scanning = False
+
+        # 创建新线程执行扫描
+        import threading
+        scan_thread = threading.Thread(target=run_scan)
+        scan_thread.daemon = True
+        scan_thread.start()
+
+    def get_scanned_objects(self):
+        """
+        获取已经扫描到的文件列表(不一定全,只获取从扫描开始到该方法被调用的那一刻为止已经扫描出来的文件和文件夹列表)
+        :return:
+        """
+        # 按文件大小排序
+        self.large_files.sort(key=lambda x: x['size'], reverse=True)
+        return self.large_files
