@@ -4,6 +4,7 @@ from wechat_scanner import WeChatScanner
 import os
 import subprocess
 from pydantic import BaseModel
+import shutil
 
 app = FastAPI()
 
@@ -89,4 +90,14 @@ async def file_action(action: str, file_data: FileAction):
         # 从 scanner 的文件列表中移除已删除的文件
         scanner.large_files = [f for f in scanner.large_files if f['path'] != full_path]
     
-    return {"status": "success"} 
+    return {"status": "success"}
+
+@app.get("/disk-usage")
+async def get_disk_usage():
+    total, used, free = shutil.disk_usage("/")
+    return {
+        "total": total,
+        "used": used,
+        "free": free,
+        "usage_percent": (used / total) * 100
+    } 
