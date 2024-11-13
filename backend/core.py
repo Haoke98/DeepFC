@@ -3,9 +3,10 @@ import os
 import click
 from pathlib import Path
 from tools import storageFormat
+import hashlib
 
 
-class WeChatScanner:
+class FileScanner:
     def __init__(self):
         self.base_path = os.path.expanduser("~/Library/Containers/com.tencent.xinWeChat/Data/Library/Application Support/com.tencent.xinWeChat")
         self.large_files = []
@@ -160,3 +161,96 @@ class WeChatScanner:
         """清空扫描结果"""
         self.large_files = []
         self.accounts = {}
+
+    def scan_directory(self, directory_path, min_size_mb=10):
+        """扫描指定目录中的大文件"""
+        self.size_threshold = min_size_mb * 1024 * 1024
+        
+        if not os.path.exists(directory_path):
+            return
+        
+        def get_dir_size(start_path):
+            total_size = 0
+            for dirpath, dirnames, filenames in os.walk(start_path):
+                for f in filenames:
+                    fp = os.path.join(dirpath, f)
+                    try:
+                        total_size += os.path.getsize(fp)
+                    except (OSError, IOError):
+                        continue
+            return total_size
+        
+        # 遍历目录
+        for root, dirs, files in os.walk(directory_path):
+            # 特殊处理 node_modules 文件夹
+            if 'node_modules' in dirs:
+                node_modules_path = os.path.join(root, 'node_modules')
+                try:
+                    dir_size = get_dir_size(node_modules_path)
+                    if dir_size >= self.size_threshold:
+                        relative_path = os.path.relpath(node_modules_path, directory_path)
+                        file_info = {
+                            'path': node_modules_path,
+                            'relative_path': relative_path,
+                            'size': dir_size,
+                            'type': 'Node依赖包',
+                            'name': 'node_modules'
+                        }
+                        self.large_files.append(file_info)
+                except (OSError, IOError) as e:
+                    print(f"Error processing node_modules at {node_modules_path}: {e}")
+                
+                # 从待遍历列表中移除 node_modules
+                dirs.remove('node_modules')
+            
+            # 处理普通文件
+            for file in files:
+                if file == ".DS_Store":
+                    continue
+                
+                file_path = os.path.join(root, file)
+                try:
+                    file_size = os.path.getsize(file_path)
+                    if file_size >= self.size_threshold:
+                        file_type = self._get_file_type(file)
+                        relative_path = os.path.relpath(file_path, directory_path)
+                        file_md5 = self._calculate_file_md5(file_path)
+                        
+                        file_info = {
+                            'path': file_path,
+                            'relative_path': relative_path,
+                            'size': file_size,
+                            'type': file_type,
+                            'md5': file_md5
+                        }
+                        
+                        # 检查是否已存在相同内容的文件
+                        duplicate = False
+                        for existing_file in self.large_files:
+                            if existing_file.get('md5') == file_md5:
+                                duplicate = True
+                                break
+                        
+                        if not duplicate:
+                            self.large_files.append(file_info)
+                            
+                except (OSError, IOError) as e:
+                    print(f"Error processing file {file_path}: {e}")
+                    continue
+        
+        # 按文件大小排序
+        self.large_files.sort(key=lambda x: x['size'], reverse=True)
+
+    def _calculate_file_md5(self, file_path, block_size=8192):
+        """计算文件的MD5值"""
+        md5 = hashlib.md5()
+        try:
+            with open(file_path, 'rb') as f:
+                while True:
+                    data = f.read(block_size)
+                    if not data:
+                        break
+                    md5.update(data)
+            return md5.hexdigest()
+        except (OSError, IOError):
+            return None

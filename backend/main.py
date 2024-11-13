@@ -6,7 +6,7 @@ import hashlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from tools import storageFormat
-from wechat_scanner import WeChatScanner
+from wechat_scanner import FileScanner
 
 fileModels = {}
 file_ext_list = []
@@ -200,7 +200,7 @@ def compare(file1, file2):
 @click.option('--min-size', default=10, help='最小文件大小（MB）', show_default=True)
 def scan_wechat(min_size):
     """扫描微信中的大文件"""
-    scanner = WeChatScanner()
+    scanner = FileScanner()
     with click.progressbar(length=100, label='正在扫描微信文件...') as bar:
         scanner.scan_message_files(min_size_mb=min_size)
         bar.update(100)
