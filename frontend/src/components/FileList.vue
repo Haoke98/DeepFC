@@ -2,6 +2,22 @@
   <div class="file-manager">
     <!-- 控制栏 -->
     <div class="controls">
+      <el-select v-model="scanPath" placeholder="选择扫描路径" class="path-select">
+        <el-option
+          v-for="item in pathOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+        />
+      </el-select>
+      
+      <el-input
+        v-model="customPath"
+        placeholder="输入自定义路径"
+        class="custom-path"
+        :disabled="scanPath !== 'custom'"
+      />
+
       <el-select v-model="groupBy" placeholder="分组方式">
         <el-option label="按大小排序" value="size" />
         <el-option label="按账号分组" value="account" />
@@ -69,6 +85,43 @@ import axios from 'axios'
 const files = ref([])
 const groupBy = ref('size')
 const minSize = ref(10)
+const scanPath = ref('wechat')
+const customPath = ref('')
+
+const pathOptions = [
+  {
+    label: '微信历史消息',
+    value: 'wechat',
+  },
+  {
+    label: 'MacOS照片库',
+    value: 'photos',
+  },
+  {
+    label: 'Yarn缓存',
+    value: 'yarn',
+  },
+  {
+    label: 'JetBrains缓存',
+    value: 'jetbrains',
+  },
+  {
+    label: 'Lark缓存',
+    value: 'lark',
+  },
+  {
+    label: 'PIP缓存',
+    value: 'pip',
+  },
+  {
+    label: 'Google缓存',
+    value: 'google',
+  },
+  {
+    label: '自定义路径',
+    value: 'custom',
+  },
+]
 
 const formatSize = (bytes) => {
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
@@ -91,7 +144,8 @@ const api = axios.create({
 
 const scanFiles = async () => {
   try {
-    await api.get(`/api/scan?min_size=${minSize.value}`)
+    const path = scanPath.value === 'custom' ? customPath.value : scanPath.value
+    await api.get(`/api/scan?min_size=${minSize.value}&path=${path}`)
     loadFiles()
   } catch (error) {
     console.error('Scan error:', error)
@@ -112,15 +166,17 @@ const loadFiles = async () => {
 const handleAction = async (action, file) => {
   try {
     await api.post(`/api/file/action/${action}`, {
-      file_path: file.path
+      file_path: file.path,
+      base_path: scanPath.value
     })
+    
     if (action === 'delete') {
       await loadFiles()
       ElMessage.success('删除成功')
     }
   } catch (error) {
-    console.error('Action error:', error)
-    ElMessage.error('操作失败')
+    console.error('Action error:', error.response?.data || error)
+    ElMessage.error(`操作失败: ${error.response?.data?.detail || '未知错误'}`)
   }
 }
 
@@ -138,6 +194,15 @@ onMounted(() => {
   margin-bottom: 20px;
   display: flex;
   gap: 16px;
+  flex-wrap: wrap;
+}
+
+.path-select {
+  width: 200px;
+}
+
+.custom-path {
+  width: 300px;
 }
 
 .file-list {
