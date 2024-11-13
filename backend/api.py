@@ -8,7 +8,11 @@ import subprocess
 from pydantic import BaseModel
 import shutil
 import psutil
+import logging
+from utils import logger
+from exceptions import DirectoryNotExistError
 
+logger.init('DeepClean-api', console_level=logging.DEBUG)
 app = FastAPI()
 
 # CORS设置
@@ -28,10 +32,11 @@ class FileAction(BaseModel):
     base_path: str = ""
 
 
+# TODO: 这个映射表,也可以在服务器上进行维护
 BASE_PATHS = {
     'system': '/',
     'user': os.path.expanduser('~'),
-    'wechat': '~/Library/Containers/com.tencent.xinWeChat/Data/Library/Application Support/com.tencent.xinWeChat',
+    'wechat': '~/Library/Containers/com.tencent.xinWeChat/Data',
     'photos': '~/Pictures',
     'yarn': '~/Library/Caches/Yarn',
     'jetbrains': '~/Library/Caches/JetBrains',
@@ -50,17 +55,20 @@ async def scan_files(min_size: int = 10, path: str = "wechat"):
     # 如果已经在扫描，返回错误
     if scanner.scanning:
         raise HTTPException(status_code=400, detail="Scan already in progress")
-    
-    if path == "wechat":
-        scanner.scan_message_files(min_size_mb=min_size)
-    elif path == "photos":
-        scanner.scan_photos_library(min_size_mb=min_size)
-    elif path in ["user", "system", "photos", "yarn", "jetbrains", "lark", "google", "pip"]:
-        scanner.start_scan(BASE_PATHS[path], min_size_mb=min_size)
-    elif os.path.exists(path):
-        scanner.start_scan(path, min_size_mb=min_size)
-    else:
-        raise HTTPException(status_code=400, detail="Invalid path")
+    try:
+        if path == "wechat":
+            # scanner.scan_message_files(min_size_mb=min_size)
+            scanner.start_scan(BASE_PATHS[path], min_size_mb=min_size)
+        elif path == "photos":
+            scanner.scan_photos_library(min_size_mb=min_size)
+        elif path in ["user", "system", "photos", "yarn", "jetbrains", "lark", "google", "pip"]:
+            scanner.start_scan(BASE_PATHS[path], min_size_mb=min_size)
+        elif os.path.exists(path):
+            scanner.start_scan(path, min_size_mb=min_size)
+        else:
+            raise HTTPException(status_code=400, detail="Invalid path")
+    except DirectoryNotExistError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     return {
         "status": "scanning",

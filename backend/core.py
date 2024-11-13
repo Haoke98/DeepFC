@@ -1,15 +1,18 @@
-import re
-import os
-import click
-from pathlib import Path
-from tools import storageFormat
 import hashlib
+import logging
+import os
+import re
+
+import click
+
+from exceptions import DirectoryNotExistError
+from tools import storageFormat
 
 
 class FileScanner:
     def __init__(self):
         self.base_path = os.path.expanduser(
-            "~/Library/Containers/com.tencent.xinWeChat/Data/Library/Application Support/com.tencent.xinWeChat")
+            "~/Library/Containers/com.tencent.xinWeChat/Data")
         self.large_files = []
         self.size_threshold = 10 * 1024 * 1024  # 默认10MB
         self.accounts = {}
@@ -22,7 +25,7 @@ class FileScanner:
         pattern = r'^[a-fA-F0-9]{32}$'
         return bool(re.match(pattern, dirname))
 
-    def scan_message_files(self, min_size_mb=10):
+    def scan_wx_message_files(self, min_size_mb=10):
         """扫描微信消息中的大文件"""
         self.size_threshold = min_size_mb * 1024 * 1024
 
@@ -89,7 +92,10 @@ class FileScanner:
 
     def _get_file_type(self, filename):
         """获取文件类型"""
+        if filename == "brandmsg.db":
+            return "微信存储品牌信息的数据库文件(可以删除)"
         ext = os.path.splitext(filename)[1].lower()
+        # TODO: 此项映射表可以放在服务器上进行维护
         type_map = {
             '.jpg': '图片',
             '.jpeg': '图片',
@@ -104,6 +110,8 @@ class FileScanner:
             '.docx': 'Word文档',
             '.xls': 'Excel表格',
             '.xlsx': 'Excel表格',
+            '.zip': '压缩包',
+            '.nb3': 'Navicat数据库备份文件 (不可删除, 非常重要‼️)'
         }
         return type_map.get(ext, '其他')
 
@@ -173,9 +181,6 @@ class FileScanner:
         self.scanned_dirs = 0
 
         self.size_threshold = min_size_mb * 1024 * 1024
-
-        if not os.path.exists(directory_path):
-            return
 
         def get_dir_size(start_path):
             total_size = 0
@@ -278,17 +283,24 @@ class FileScanner:
         }
 
     def start_scan(self, directory_path, min_size_mb=10):
+        directory_path = os.path.expanduser(directory_path)
         """开始异步扫描"""
+        if not os.path.exists(directory_path):
+            raise DirectoryNotExistError(directory_path)
+        logging.debug(f"触发StartScan:{directory_path}")
         self.clear_scan_results()
         self.scanning = True
 
         def run_scan():
+            logging.debug("扫描进程启动")
             try:
                 self.scan_directory(directory_path, min_size_mb)
+                logging.debug("扫描进程正常结束")
             except Exception as e:
-                print(f"Scan error: {e}")
+                logging.error(f"Scan error: {e}")
             finally:
                 self.scanning = False
+                logging.debug("扫描进程结束")
 
         # 创建新线程执行扫描
         import threading

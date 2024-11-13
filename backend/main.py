@@ -1,10 +1,12 @@
 import filecmp
+import logging
 import subprocess
 import click
 import os
 import hashlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from utils import logger
 from tools import storageFormat
 from core import FileScanner
 
@@ -202,9 +204,9 @@ def scan_wechat(min_size):
     """扫描微信中的大文件"""
     scanner = FileScanner()
     with click.progressbar(length=100, label='正在扫描微信文件...') as bar:
-        scanner.scan_message_files(min_size_mb=min_size)
+        scanner.scan_wx_message_files(min_size_mb=min_size)
         bar.update(100)
-    
+
     scanner.print_large_files()
     scanner.clean_selected_files()
 
@@ -218,4 +220,5 @@ def start_ui(port):
 
 # 按装订区域中的绿色按钮以运行脚本。
 if __name__ == "__main__":
+    logger.init('DeepClean', console_level=logging.DEBUG)
     main()

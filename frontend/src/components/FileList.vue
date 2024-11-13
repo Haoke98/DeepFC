@@ -117,7 +117,7 @@
     <!-- 文件列表 -->
     <div class="file-list">
       <el-table :data="files" style="width: 100%">
-        <el-table-column prop="type" label="类型" width="100" />
+        <el-table-column prop="type" label="类型" width="160" />
         <el-table-column prop="size" label="大小" width="120">
           <template #default="scope">
             {{ formatSize(scope.row.size) }}
@@ -188,7 +188,7 @@ const pathOptions = [
     value: 'yarn',
   },
   {
-    label: 'JetBrains缓存',
+    label: 'Jetbrains全家桶缓存',
     value: 'jetbrains',
   },
   {

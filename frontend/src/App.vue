@@ -1,7 +1,7 @@
 <template>
   <div class="app">
     <header class="header">
-      <h1>DeepFC 文件清理器</h1>
+      <h1>DeepClean 🧹 深度扫描 - 文件清理工具</h1>
     </header>
     <main class="main">
       <FileList />
@@ -43,7 +43,7 @@ body {
 }
 
 .main {
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 1rem;
 }

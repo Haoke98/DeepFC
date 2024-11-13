@@ -1,4 +1,4 @@
-# DeepFC (Deep File Cleaner) 深度文件清理器
+# DeepClean 🧹 深度扫描-文件清理工具
 
 基于`Electron`+`Vue3`+`Vite`+`FastAPI` 开发的跨平台深度文件扫描清理工具.
 ![](assets/screenshot.png)

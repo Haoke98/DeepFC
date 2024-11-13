@@ -2,3 +2,4 @@ click
 fastapi
 uvicorn
 psutil
+colorlog
