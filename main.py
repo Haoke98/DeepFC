@@ -6,6 +6,7 @@ import hashlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from tools import storageFormat
+from wechat_scanner import WeChatScanner
 
 fileModels = {}
 file_ext_list = []
@@ -193,6 +194,15 @@ def compare(file1, file2):
         print(f"内容一致")
     else:
         print(f"内容不一致")
+
+
+@main.command(help="扫描微信缓存文件")
+def scan_wechat():
+    scanner = WeChatScanner()
+    click.echo("Scanning WeChat cache...")
+    scanner.scan_cache()
+    scanner.print_statistics()
+    scanner.clean_cache()
 
 
 # 按装订区域中的绿色按钮以运行脚本。
