@@ -155,3 +155,8 @@ class WeChatScanner:
                             click.echo(f"删除失败: {e}")
         except ValueError:
             click.echo("输入格式错误！")
+
+    def clear_scan_results(self):
+        """清空扫描结果"""
+        self.large_files = []
+        self.accounts = {}

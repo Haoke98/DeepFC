@@ -38,6 +38,9 @@ def get_base_path(path_type: str) -> str:
 
 @app.get("/scan")
 async def scan_files(min_size: int = 10, path: str = "wechat"):
+    # 清空之���的扫描结果
+    scanner.clear_scan_results()
+    
     if path == "wechat":
         scanner.scan_message_files(min_size_mb=min_size)
     elif path == "photos":
@@ -73,7 +76,7 @@ async def file_action(action: str, file_data: FileAction):
     full_path = file_data.file_path
     
     if not os.path.exists(full_path):
-        # 尝试从 scanner 中获取完整路径
+        # ���试从 scanner 中获取完整路径
         for file in scanner.large_files:
             if file['relative_path'] == file_data.file_path:
                 full_path = file['path']
