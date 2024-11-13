@@ -197,12 +197,16 @@ def compare(file1, file2):
 
 
 @main.command(help="扫描微信缓存文件")
-def scan_wechat():
+@click.option('--min-size', default=10, help='最小文件大小（MB）', show_default=True)
+def scan_wechat(min_size):
+    """扫描微信中的大文件"""
     scanner = WeChatScanner()
-    click.echo("Scanning WeChat cache...")
-    scanner.scan_cache()
-    scanner.print_statistics()
-    scanner.clean_cache()
+    with click.progressbar(length=100, label='正在扫描微信文件...') as bar:
+        scanner.scan_message_files(min_size_mb=min_size)
+        bar.update(100)
+    
+    scanner.print_large_files()
+    scanner.clean_selected_files()
 
 
 # 按装订区域中的绿色按钮以运行脚本。
