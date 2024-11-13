@@ -167,6 +167,14 @@ const customPath = ref('')
 
 const pathOptions = [
   {
+    label: '系统级扫描',
+    value: 'system',
+  },
+  {
+    label: '用户级扫描',
+    value: 'user',
+  },
+  {
     label: '微信历史消息',
     value: 'wechat',
   },
