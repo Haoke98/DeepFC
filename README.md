@@ -18,6 +18,12 @@
     * 其实扫描[此处](~/Library/Containers/com.tencent.xinWeChat/Data)即可.
 * [ ] 结合到[Immich的python上传脚本](https://immich.app/docs/guides/python-file-upload), 实现先上传到Immich, 然后进行删除
     * 当然是先要给用户一个选择(直接删除/备份再删除本地副本)
+* [ ] 大文件扫描
+  * [ ] 特殊文件包扫描
+    * [X] Node环境依赖包(node_modules)
+    * [ ] .next
+    * [X] Python环境(.env)
+    * [ ] ...
 * [ ] ~~利用Tkinter先实现简单的可视化界面.~~
 * [ ] ~~后期用WPF为Windows系统出一个更完美的UI和使用体验.~~
 * [ ] ~~后期使用Swift给MacOS系统出一个更完美的UI和使用体验.~~
