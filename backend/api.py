@@ -111,7 +111,11 @@ async def file_action(action: str, file_data: FileAction):
     elif action == "reveal":
         subprocess.run(["open", "-R", full_path])
     elif action == "delete":
-        os.remove(full_path)
+        if os.path.isdir(full_path):
+            # 删除非空目录
+            shutil.rmtree(full_path)
+        else:
+            os.remove(full_path)
         # 从 scanner 的文件列表中移除已删除的文件
         scanner.large_files = [f for f in scanner.large_files if f['path'] != full_path]
 
